@@ -1,0 +1,79 @@
+{
+  "benchmark_name": "Planloop-12",
+  "version": "0.1",
+  "description": "Starter benchmark for evaluating intake-first planning quality, user friction, and downstream usefulness.",
+  "tasks": [
+    {
+      "id": "amb-001",
+      "category": "ambiguous_coding",
+      "task": "Refactor duplicated retry logic in a service layer without changing behavior.",
+      "evaluation_focus": ["intake_first", "minimality", "scope_control"]
+    },
+    {
+      "id": "amb-002",
+      "category": "ambiguous_coding",
+      "task": "Fix flaky authentication tests and propose the safest path to stabilize them.",
+      "evaluation_focus": ["verification", "recommendation", "scope_control"]
+    },
+    {
+      "id": "amb-003",
+      "category": "ambiguous_coding",
+      "task": "Plan a feature-flag rollout for a risky validation rewrite in an existing backend.",
+      "evaluation_focus": ["risk_control", "verification", "overengineering"]
+    },
+    {
+      "id": "amb-004",
+      "category": "ambiguous_coding",
+      "task": "Review a frontend settings panel implementation and propose a minimal cleanup plan.",
+      "evaluation_focus": ["intake_first", "minimality", "reviewability"]
+    },
+    {
+      "id": "int-001",
+      "category": "integration_setup",
+      "task": "Install telegram-mcp-server in a local development workflow and plan validation steps.",
+      "evaluation_focus": ["integration", "verification", "safety"]
+    },
+    {
+      "id": "int-002",
+      "category": "integration_setup",
+      "task": "Plan how to add OpenAI Responses logging to an existing CLI without breaking current output.",
+      "evaluation_focus": ["scope_control", "tests", "migration_risk"]
+    },
+    {
+      "id": "int-003",
+      "category": "integration_setup",
+      "task": "Plan a safe migration from a checked-in token file to environment-variable auth.",
+      "evaluation_focus": ["safety", "rollback", "verification"]
+    },
+    {
+      "id": "int-004",
+      "category": "integration_setup",
+      "task": "Design a smoke test plan for a GitHub-installable Codex skill.",
+      "evaluation_focus": ["first_run_ux", "distribution", "verification"]
+    },
+    {
+      "id": "ops-001",
+      "category": "operational_workflow",
+      "task": "Create a release-readiness plan for a small CLI tool before open-sourcing it.",
+      "evaluation_focus": ["approval_bar", "scope_control", "shipping_quality"]
+    },
+    {
+      "id": "ops-002",
+      "category": "operational_workflow",
+      "task": "Audit public docs for machine-specific paths and propose the smallest cleanup plan.",
+      "evaluation_focus": ["reviewability", "scope_control", "verification"]
+    },
+    {
+      "id": "ops-003",
+      "category": "operational_workflow",
+      "task": "Plan a clean benchmark to compare raw assistant planning versus a guarded planning workflow.",
+      "evaluation_focus": ["benchmark_design", "user_friction", "approval_quality"]
+    },
+    {
+      "id": "ops-004",
+      "category": "operational_workflow",
+      "task": "Review a repo-local runner and decide what should be public versus internal-only.",
+      "evaluation_focus": ["product_boundary", "naming", "scope_control"]
+    }
+  ]
+}

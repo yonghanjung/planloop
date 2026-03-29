@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "planloop"
+version = "0.1.0"
+description = "Protected planning skill with a guided intake, planner, critic, and moderator approval gate."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+planloop = "planloop.cli:main"
+planloop-benchmark = "planloop.benchmark:main"

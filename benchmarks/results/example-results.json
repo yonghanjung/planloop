@@ -1,0 +1,44 @@
+{
+  "benchmark_name": "Planloop-12",
+  "version": "0.1",
+  "system_name": "planloop",
+  "run_label": "example-local-run",
+  "results": [
+    {
+      "task_id": "amb-001",
+      "first_response_mode": "intake_only",
+      "bundled_intake": true,
+      "asked_outcome": false,
+      "used_why_this_matters": false,
+      "user_turns_to_approved_plan": 2,
+      "approved_without_rewrite": true,
+      "downstream_execution_ready": true,
+      "total_tokens": 460,
+      "failure_tags": []
+    },
+    {
+      "task_id": "int-001",
+      "first_response_mode": "intake_only",
+      "bundled_intake": true,
+      "asked_outcome": false,
+      "used_why_this_matters": false,
+      "user_turns_to_approved_plan": 2,
+      "approved_without_rewrite": true,
+      "downstream_execution_ready": true,
+      "total_tokens": 520,
+      "failure_tags": ["weak_verification"]
+    },
+    {
+      "task_id": "ops-002",
+      "first_response_mode": "mixed",
+      "bundled_intake": false,
+      "asked_outcome": false,
+      "used_why_this_matters": false,
+      "user_turns_to_approved_plan": 3,
+      "approved_without_rewrite": false,
+      "downstream_execution_ready": true,
+      "total_tokens": 610,
+      "failure_tags": ["overengineering"]
+    }
+  ]
+}
