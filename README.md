@@ -60,6 +60,46 @@ Then start or restart Claude Code and invoke:
 The user does not need to mention `Agent M`, `Agent P`, or `Agent C`.
 The outcome is implicit: `plan` is mandatory.
 
+## Real Example Prompts
+
+Use `planloop` when a task is ambiguous, likely to grow, or needs a clear approval-grade plan before execution.
+
+- New integration
+
+  ```text
+  $planloop install and verify a new MCP server for this workspace
+  ```
+
+- Risky skill UX refactor
+
+  ```text
+  $planloop refactor the first-turn UX of the council skill to be more honest and less noisy
+  ```
+
+- Contract-preserving workflow redesign
+
+  ```text
+  $planloop redesign the secretary workflow without breaking the existing daily output contract
+  ```
+
+- Architecture decision
+
+  ```text
+  $planloop decide whether planloop v0.2 should stay prompt-driven or move to model-backed orchestration first
+  ```
+
+- Release planning
+
+  ```text
+  $planloop prepare the v0.2.0 release plan for planloop with benchmark, docs, demo, and verification gates
+  ```
+
+- Benchmark design
+
+  ```text
+  $planloop design a Planloop-30 benchmark that can compare raw Codex, $plan, and $planloop
+  ```
+
 ## Local CLI
 
 This repo also ships a small local runner and benchmark CLI.
