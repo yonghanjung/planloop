@@ -10,6 +10,7 @@ What users see:
 
 ## Quick Start
 
+### Codex
 1. Use the built-in `$skill-installer`.
 2. Install the GitHub repo path `skills/planloop`.
 3. Restart Codex.
@@ -25,6 +26,19 @@ Default user prompt:
 
 ```text
 $planloop install telegram-mcp-server
+```
+
+### Claude Code
+
+Claude Code supports the same skill package through its skills directories:
+
+- `~/.claude/skills/planloop` for personal use
+- `.claude/skills/planloop` for project-local use
+
+After linking or copying `skills/planloop` into one of those locations, invoke:
+
+```text
+/planloop install telegram-mcp-server
 ```
 
 The user does not need to mention `Agent M`, `Agent P`, or `Agent C` manually.

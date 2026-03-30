@@ -29,6 +29,10 @@ The starter kit is `Planloop-12`.
 
 This starter set is meant to expand into `Planloop-30` later.
 
+One case is intentionally a much harder real-world decision problem rather than a trivial preference prompt.
+It uses a near-distance `drive / walk / postpone / alternative` scenario with conflicting time, safety, parking, weather, and dependency constraints.
+That case exists to check whether the system still gathers the right missing facts and keeps the first-turn intake short.
+
 ## Files
 
 - cases fixture: [../benchmarks/cases/planloop-12.json](../benchmarks/cases/planloop-12.json)

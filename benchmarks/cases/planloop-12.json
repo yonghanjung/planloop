@@ -66,8 +66,8 @@
     {
       "id": "ops-003",
       "category": "operational_workflow",
-      "task": "Plan a clean benchmark to compare raw assistant planning versus a guarded planning workflow.",
-      "evaluation_focus": ["benchmark_design", "user_friction", "approval_quality"]
+      "task": "Plan a decision workflow for this situation: the car wash is 50 meters away and the weather is clear right now, but you have a job interview call in 12 minutes, your EV battery is at 6%, the street outside the wash becomes tow-away after 10 minutes, fragile groceries and a child seat are already in the car, one passenger has a sprained ankle, the radar shows a 35% chance of hail in 20 minutes, and a mechanic asked you to reproduce a brake squeal during a short drive if it can be done safely. Decide whether to drive to the wash, walk there and move the car later, postpone the wash, or choose another option, and specify what facts must be confirmed before approving the plan.",
+      "evaluation_focus": ["decision_quality", "user_friction", "safety", "approval_quality"]
     },
     {
       "id": "ops-004",

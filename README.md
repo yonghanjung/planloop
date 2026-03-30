@@ -18,6 +18,18 @@ Then restart Codex and invoke:
 $planloop install telegram-mcp-server
 ```
 
+Claude Code also supports the same skill package, but not through Codex's GitHub installer flow.
+Install it by cloning this repo and then copying or symlinking `skills/planloop` into either:
+
+- `~/.claude/skills/planloop` for personal use across projects
+- `.claude/skills/planloop` inside a project for project-local use
+
+Then invoke:
+
+```text
+/planloop install telegram-mcp-server
+```
+
 ## What the User Sees
 
 - one short bundled 4-question intake block in simple English
@@ -55,6 +67,11 @@ Run the benchmark scorer:
 - `examples/`: demo transcript and sample final plan
 - `benchmarks/`: starter cases and example results
 - `tests/`: regression tests
+
+## Benchmark Shape
+
+The starter benchmark is not limited to coding tasks.
+It also includes a harder conflicting-constraints decision case, designed to test whether `planloop` still asks the right short intake before committing to a plan.
 
 ## MVP Scope
 

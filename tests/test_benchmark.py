@@ -31,6 +31,9 @@ class PlanloopBenchmarkTests(unittest.TestCase):
         validated = validate_cases_payload(payload)
         self.assertEqual(validated["benchmark_name"], "Planloop-12")
         self.assertEqual(len(validated["tasks"]), 12)
+        hard_case = next(task for task in validated["tasks"] if task["id"] == "ops-003")
+        self.assertIn("car wash is 50 meters away", hard_case["task"])
+        self.assertIn("job interview call in 12 minutes", hard_case["task"])
 
     def test_results_fixture_validates(self) -> None:
         cases = load_fixture("benchmarks/cases/planloop-12.json")

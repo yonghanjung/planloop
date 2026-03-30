@@ -14,7 +14,7 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertTrue((ROOT / "skills" / "planloop" / "agents" / "openai.yaml").exists())
 
     def test_public_files_have_no_machine_specific_absolute_paths(self) -> None:
-        bad_tokens = ["/Users/", "~/.agents/", "~/.claude/", "python3 /Users/"]
+        bad_tokens = ["/Users/", "~/.agents/", "python3 /Users/"]
         for rel in [
             "README.md",
             "docs/usage.md",
@@ -55,6 +55,8 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("Use $skill-installer to install the skill from GitHub repo <owner>/<repo> path skills/planloop.", readme)
         self.assertIn("$planloop install telegram-mcp-server", readme)
+        self.assertIn("~/.claude/skills/planloop", readme)
+        self.assertIn("/planloop install telegram-mcp-server", readme)
         self.assertIn("./scripts/planloop run", readme)
         self.assertIn("./scripts/planloop-benchmark score", readme)
 
@@ -64,6 +66,8 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("do not jump straight to a plan or recommendation", doc_text)
         self.assertIn("one short bundled intake block", doc_text)
         self.assertIn("The outcome is implicit: `plan` is mandatory.", doc_text)
+        self.assertIn("~/.claude/skills/planloop", doc_text)
+        self.assertIn("/planloop install telegram-mcp-server", doc_text)
         self.assertIn("./scripts/planloop run", doc_text)
 
     def test_benchmark_doc_has_coverage_interpretation(self) -> None:
@@ -71,7 +75,16 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("Coverage Interpretation", doc_text)
         self.assertIn("demo_only", doc_text)
         self.assertIn("official", doc_text)
+        self.assertIn("drive / walk / postpone / alternative", doc_text)
         self.assertIn("./scripts/planloop-benchmark score", doc_text)
+
+    def test_benchmark_fixture_contains_harder_conflicting_constraints_case(self) -> None:
+        text = (ROOT / "benchmarks" / "cases" / "planloop-12.json").read_text(encoding="utf-8")
+        self.assertIn('"id": "ops-003"', text)
+        self.assertIn("car wash is 50 meters away", text)
+        self.assertIn("job interview call in 12 minutes", text)
+        self.assertIn("tow-away after 10 minutes", text)
+        self.assertIn("35% chance of hail in 20 minutes", text)
 
     def test_demo_covers_all_four_intake_fields_in_one_block(self) -> None:
         demo = (ROOT / "examples" / "demo.md").read_text(encoding="utf-8")
