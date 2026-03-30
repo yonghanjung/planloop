@@ -48,7 +48,7 @@ Then start or restart Claude Code and invoke:
 
 | Host | Install path | Invoke | Current verification |
 | --- | --- | --- | --- |
-| Codex | GitHub repo path via `$skill-installer` | `$planloop <task>` | GitHub installer packaging verified on a clean temp `CODEX_HOME`; direct-download path hit a local SSL trust issue on this machine; `git` install path succeeded |
+| Codex | GitHub repo path via `$skill-installer` | `$planloop <task>` | GitHub installer packaging verified on a clean temp `CODEX_HOME`; direct-download path hit a local SSL trust issue on this machine; `git` install path succeeded; fresh `codex exec` runtime recognition is still pending because `$planloop` did not resolve in this machine's exec session |
 | Claude Code | `./scripts/install-claude-skill --personal` or `--project /path/to/target-project` | `/planloop <task>` | Project-local install and runtime first response verified with `claude -p`; fully clean temp `HOME` install needs `claude /login` before runtime use |
 
 ## What the User Sees
@@ -116,4 +116,7 @@ Not yet shipped:
 
 - true model-backed orchestration
 - verified public GitHub install transcript
-- final public license selection
+
+## License
+
+MIT. See [LICENSE](LICENSE).

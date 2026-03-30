@@ -12,6 +12,7 @@ class PlanloopSkillPackageTests(unittest.TestCase):
     def test_planloop_skill_exists(self) -> None:
         self.assertTrue((ROOT / "skills" / "planloop" / "SKILL.md").exists())
         self.assertTrue((ROOT / "skills" / "planloop" / "agents" / "openai.yaml").exists())
+        self.assertTrue((ROOT / "LICENSE").exists())
 
     def test_public_files_have_no_machine_specific_absolute_paths(self) -> None:
         bad_tokens = ["/Users/", "~/.agents/", "python3 /Users/"]
@@ -34,12 +35,14 @@ class PlanloopSkillPackageTests(unittest.TestCase):
     def test_planloop_metadata_uses_public_name(self) -> None:
         skill_text = (ROOT / "skills" / "planloop" / "SKILL.md").read_text(encoding="utf-8")
         yaml_text = (ROOT / "skills" / "planloop" / "agents" / "openai.yaml").read_text(encoding="utf-8")
+        pyproject_text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         self.assertIn("name: planloop", skill_text)
         self.assertIn("$planloop", skill_text)
         self.assertIn('display_name: "Planloop"', yaml_text)
         self.assertIn("$planloop", yaml_text)
         self.assertIn("one short bundled intake block", yaml_text)
         self.assertIn("The outcome is implicit", yaml_text)
+        self.assertIn('license = "MIT"', pyproject_text)
 
     def test_planloop_skill_hard_gates_the_first_response(self) -> None:
         skill_text = (ROOT / "skills" / "planloop" / "SKILL.md").read_text(encoding="utf-8")
@@ -66,7 +69,10 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("Composite score: 77.50/100", readme)
         self.assertIn("## Support Matrix", readme)
         self.assertIn("GitHub installer packaging verified on a clean temp `CODEX_HOME`", readme)
+        self.assertIn("fresh `codex exec` runtime recognition is still pending", readme)
         self.assertIn("Project-local install and runtime first response verified with `claude -p`", readme)
+        self.assertIn("## License", readme)
+        self.assertIn("MIT. See [LICENSE](LICENSE).", readme)
 
     def test_usage_doc_matches_public_contract(self) -> None:
         doc_text = (ROOT / "docs" / "usage.md").read_text(encoding="utf-8")

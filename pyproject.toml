@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Protected planning skill with a guided intake, planner, critic, and moderator approval gate."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
 dependencies = []
 
 [tool.setuptools]
