@@ -64,6 +64,9 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("./scripts/planloop-benchmark score", readme)
         self.assertIn("Coverage: 4/12 (33.33%)", readme)
         self.assertIn("Composite score: 77.50/100", readme)
+        self.assertIn("## Support Matrix", readme)
+        self.assertIn("GitHub installer packaging verified on a clean temp `CODEX_HOME`", readme)
+        self.assertIn("Project-local install and runtime first response verified with `claude -p`", readme)
 
     def test_usage_doc_matches_public_contract(self) -> None:
         doc_text = (ROOT / "docs" / "usage.md").read_text(encoding="utf-8")
