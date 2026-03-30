@@ -40,9 +40,13 @@ ARTIFACT_REQUIRED_FIELDS = {
     ],
     "prd": [
         "user_intent",
+        "in_scope",
+        "out_of_scope",
+        "user_values",
         "success_criteria",
         "failure_conditions",
         "safety_constraints",
+        "non_negotiable_approval_gates",
         "workspace_strategy",
         "artifact_output_path",
         "iteration_budget",
@@ -229,6 +233,7 @@ def guided_intake_questions() -> list[dict[str, Any]]:
 def render_guided_intake_prompt(task_text: str) -> str:
     lines = [
         "You are the intake host for a moderated planning workflow.",
+        "Native subagents are unavailable. Run in degraded single-thread mode and emulate Agent M, Agent P, and Agent C explicitly.",
         "Talk to the user in simple English.",
         "The outcome is implicit: produce a plan.",
         "Ask at most 4 short questions.",
@@ -376,31 +381,10 @@ def build_guided_intake_artifacts(
         artifact_output_path=validated_output_path,
         iteration_budget=iteration_budget,
         moderator_confidence=moderator_confidence,
+        planner_acceptance_hint=success["acceptance"],
+        primary_safety_signal=safety["signals"][0],
     )
-    prd = PRD(
-        user_intent=interpreted_goal,
-        success_criteria=_dedupe_strings(
-            discovery.success_signals + [f"Write the final plan document to {validated_output_path}."]
-        ),
-        failure_conditions=list(discovery.failure_signals),
-        safety_constraints=_dedupe_strings(
-            safety["signals"]
-            + [f"Use workspace strategy: {workspace_strategy}.", f"Keep artifact output path fixed at {validated_output_path}."]
-        ),
-        workspace_strategy=workspace_strategy,
-        artifact_output_path=validated_output_path,
-        iteration_budget=iteration_budget,
-        acceptance_bar_for_planner_approval=_dedupe_strings(
-            [
-                "Produce a plan document only. Do not treat this workflow as implementation by default.",
-                success["acceptance"],
-                "Use the minimal credible path only.",
-                "Stay aligned to the chosen workspace strategy and output path.",
-                "Address approval gates explicitly.",
-            ]
-        ),
-        moderator_rejection_log=[],
-    )
+    prd = build_prd_from_discovery(task_text=task_text_clean, discovery=discovery)
     intake_summary = {
         "success_answer": success_answer.strip(),
         "failure_answer": failure_answer.strip(),
@@ -453,6 +437,7 @@ def synthesize_plan_packet(
         implementation_shape.append("Tighten the revised sections called out by the prior critique.")
     risk_controls = _dedupe_strings(
         list(prd.safety_constraints)
+        + list(prd.non_negotiable_approval_gates)
         + [
             f"Keep the work inside the `{prd.workspace_strategy}` strategy.",
             "Do not widen scope beyond the current PRD.",
@@ -464,6 +449,7 @@ def synthesize_plan_packet(
         goal_mapping=[
             f"Deliver the requested outcome with the smallest credible plan: {prd.user_intent}",
             f"Preserve the workspace strategy `{prd.workspace_strategy}` and fixed output path `{prd.artifact_output_path}`.",
+            f"Stay inside scope: {prd.in_scope[0]}",
             "Keep validation explicit and lightweight enough for quick review.",
         ],
         minimal_strategy=(
@@ -550,10 +536,11 @@ def synthesize_moderator_review(
         iteration_count=iteration_count,
         prd_compliance=[
             "The plan stays inside the current PRD boundaries.",
+            f"In scope is preserved: {prd.in_scope[0]}",
             f"The plan preserves the `{prd.workspace_strategy}` workspace strategy and fixed output path.",
         ],
         user_value_alignment=[
-            "The plan remains short, reviewable, and explicit about validation.",
+            f"The plan honors the user's value: {prd.user_values[0]}",
             "The plan optimizes for the minimal credible path instead of a broad implementation.",
         ],
         safety_review=[
@@ -573,9 +560,13 @@ def synthesize_revised_prd(*, prd: "PRD", review: "ModeratorReview") -> "PRD":
     updates = _dedupe_strings(review.required_prd_updates)
     return PRD(
         user_intent=prd.user_intent,
+        in_scope=list(prd.in_scope),
+        out_of_scope=list(prd.out_of_scope),
+        user_values=list(prd.user_values),
         success_criteria=list(prd.success_criteria),
         failure_conditions=list(prd.failure_conditions),
         safety_constraints=list(prd.safety_constraints),
+        non_negotiable_approval_gates=list(prd.non_negotiable_approval_gates),
         workspace_strategy=prd.workspace_strategy,
         artifact_output_path=prd.artifact_output_path,
         iteration_budget=prd.iteration_budget,
@@ -646,6 +637,88 @@ def validate_output_path(raw: str) -> str:
     return str(path)
 
 
+def _derive_planner_acceptance_hint(discovery: "DiscoveryPacket") -> str:
+    if discovery.planner_acceptance_hint.strip():
+        return discovery.planner_acceptance_hint.strip()
+    text = " ".join([discovery.desired_end_state, *discovery.success_signals]).lower()
+    if "recommendation" in text and "verification" in text:
+        return "Include a recommendation and explicit verification steps."
+    if any(token in text for token in ("tests", "checks", "commands")):
+        return "Include explicit tests, checks, or commands."
+    return "Keep the plan concise and easy to review."
+
+
+def _derive_primary_safety_signal(discovery: "DiscoveryPacket") -> str:
+    if discovery.primary_safety_signal.strip():
+        return discovery.primary_safety_signal.strip()
+    for item in discovery.approval_and_safety_boundaries:
+        lower = item.lower()
+        if lower.startswith("use workspace strategy:"):
+            continue
+        if lower.startswith("write the final plan artifact to:"):
+            continue
+        return item
+    return "Respect approval boundaries and fixed output paths."
+
+
+def build_prd_from_discovery(*, task_text: str, discovery: "DiscoveryPacket") -> "PRD":
+    success_acceptance = _derive_planner_acceptance_hint(discovery)
+    primary_safety_signal = _derive_primary_safety_signal(discovery)
+    return PRD(
+        user_intent=discovery.interpreted_goal,
+        in_scope=_dedupe_strings(
+            [
+                f"Produce a reviewable plan for: {task_text}",
+                f"Keep the workspace strategy fixed at `{discovery.workspace_strategy}`.",
+                f"Keep the final plan output path fixed at `{discovery.artifact_output_path}`.",
+            ]
+        ),
+        out_of_scope=_dedupe_strings(
+            [
+                "Do not perform implementation by default.",
+                "Do not widen scope beyond the stated task.",
+                "Do not add speculative automation or unrelated refactors.",
+            ]
+        ),
+        user_values=_dedupe_strings(
+            [
+                "Keep the plan minimal and easy to review.",
+                success_acceptance,
+                f"Avoid this failure mode: {discovery.failure_signals[0]}",
+                primary_safety_signal,
+            ]
+        ),
+        success_criteria=_dedupe_strings(
+            list(discovery.success_signals) + [f"Write the final plan document to {discovery.artifact_output_path}."]
+        ),
+        failure_conditions=list(discovery.failure_signals),
+        safety_constraints=_dedupe_strings(
+            list(discovery.approval_and_safety_boundaries)
+            + [f"Keep artifact output path fixed at {discovery.artifact_output_path}."]
+        ),
+        non_negotiable_approval_gates=_dedupe_strings(
+            [
+                "Do not skip moderator intake before planning.",
+                "Do not approve while the artifact output path is pending.",
+                "Pause before risky or external actions.",
+            ]
+        ),
+        workspace_strategy=discovery.workspace_strategy,
+        artifact_output_path=discovery.artifact_output_path,
+        iteration_budget=discovery.iteration_budget,
+        acceptance_bar_for_planner_approval=_dedupe_strings(
+            [
+                "Produce a plan document only. Do not treat this workflow as implementation by default.",
+                success_acceptance,
+                "Use the minimal credible path only.",
+                "Stay aligned to the chosen workspace strategy and output path.",
+                "Address approval gates explicitly.",
+            ]
+        ),
+        moderator_rejection_log=[],
+    )
+
+
 @dataclass(frozen=True)
 class LoopConfig:
     max_iterations: int = 5
@@ -671,6 +744,8 @@ class DiscoveryPacket:
     artifact_output_path: str
     iteration_budget: int
     moderator_confidence: str
+    planner_acceptance_hint: str = ""
+    primary_safety_signal: str = ""
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "DiscoveryPacket":
@@ -689,6 +764,8 @@ class DiscoveryPacket:
             artifact_output_path=validate_output_path(_require_string(data, "artifact_output_path")),
             iteration_budget=_require_int(data, "iteration_budget"),
             moderator_confidence=_require_string(data, "moderator_confidence"),
+            planner_acceptance_hint=str(data.get("planner_acceptance_hint", "")).strip(),
+            primary_safety_signal=str(data.get("primary_safety_signal", "")).strip(),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -698,9 +775,13 @@ class DiscoveryPacket:
 @dataclass(frozen=True)
 class PRD:
     user_intent: str
+    in_scope: list[str]
+    out_of_scope: list[str]
+    user_values: list[str]
     success_criteria: list[str]
     failure_conditions: list[str]
     safety_constraints: list[str]
+    non_negotiable_approval_gates: list[str]
     workspace_strategy: str
     artifact_output_path: str
     iteration_budget: int
@@ -712,9 +793,16 @@ class PRD:
         data = _require_mapping(payload, name="PRD")
         return cls(
             user_intent=_require_string(data, "user_intent"),
+            in_scope=_require_string_list(data.get("in_scope"), name="in_scope"),
+            out_of_scope=_require_string_list(data.get("out_of_scope"), name="out_of_scope"),
+            user_values=_require_string_list(data.get("user_values"), name="user_values"),
             success_criteria=_require_string_list(data.get("success_criteria"), name="success_criteria"),
             failure_conditions=_require_string_list(data.get("failure_conditions"), name="failure_conditions"),
             safety_constraints=_require_string_list(data.get("safety_constraints"), name="safety_constraints"),
+            non_negotiable_approval_gates=_require_string_list(
+                data.get("non_negotiable_approval_gates"),
+                name="non_negotiable_approval_gates",
+            ),
             workspace_strategy=normalize_workspace_strategy(_require_string(data, "workspace_strategy")),
             artifact_output_path=validate_output_path(_require_string(data, "artifact_output_path")),
             iteration_budget=_require_int(data, "iteration_budget"),
@@ -1041,27 +1129,7 @@ class ModeratedPrdLoop:
                     raise ValidationError("cannot auto-finish before discovery_packet exists")
                 if not self._artifact_exists("prd"):
                     discovery = DiscoveryPacket.from_dict(self._read_artifact("discovery_packet"))
-                    prd = PRD(
-                        user_intent=discovery.interpreted_goal,
-                        success_criteria=_dedupe_strings(
-                            list(discovery.success_signals)
-                            + [f"Write the final plan document to {discovery.artifact_output_path}."]
-                        ),
-                        failure_conditions=list(discovery.failure_signals),
-                        safety_constraints=_dedupe_strings(
-                            list(discovery.approval_and_safety_boundaries)
-                            + [f"Keep artifact output path fixed at {discovery.artifact_output_path}."]
-                        ),
-                        workspace_strategy=discovery.workspace_strategy,
-                        artifact_output_path=discovery.artifact_output_path,
-                        iteration_budget=discovery.iteration_budget,
-                        acceptance_bar_for_planner_approval=[
-                            "Keep the final output reviewable and minimal.",
-                            "Make validation explicit and locally checkable.",
-                            "Address approval gates explicitly.",
-                        ],
-                        moderator_rejection_log=[],
-                    )
+                    prd = build_prd_from_discovery(task_text=self.state.task_text, discovery=discovery)
                     self.record_prd(prd)
                     generated.append("prd")
                     continue
@@ -1240,9 +1308,13 @@ class ModeratedPrdLoop:
                         "Continuously ask whether each implementation detail is necessary and minimal.\n\n"
                         f"Iteration: {self.state.iteration}/{self.state.max_iterations}\n"
                         f"User intent: {prd.user_intent}\n"
+                        f"In scope:\n{_quote_join(prd.in_scope)}\n"
+                        f"Out of scope:\n{_quote_join(prd.out_of_scope)}\n"
+                        f"User values:\n{_quote_join(prd.user_values)}\n"
                         f"Success criteria:\n{_quote_join(prd.success_criteria)}\n"
                         f"Failure conditions:\n{_quote_join(prd.failure_conditions)}\n"
                         f"Safety constraints:\n{_quote_join(prd.safety_constraints)}\n"
+                        f"Non-negotiable approval gates:\n{_quote_join(prd.non_negotiable_approval_gates)}\n"
                         f"Acceptance bar:\n{_quote_join(prd.acceptance_bar_for_planner_approval)}\n"
                         f"Workspace strategy: {prd.workspace_strategy}\n"
                         f"Artifact output path: {prd.artifact_output_path}\n"
@@ -1314,9 +1386,11 @@ class ModeratedPrdLoop:
                         "If you reject, specify exact PRD updates.\n\n"
                         f"Iteration: {self.state.iteration}/{self.state.max_iterations}\n"
                         f"User intent: {prd.user_intent}\n"
+                        f"User values:\n{_quote_join(prd.user_values)}\n"
                         f"PRD success criteria:\n{_quote_join(prd.success_criteria)}\n"
                         f"PRD failure conditions:\n{_quote_join(prd.failure_conditions)}\n"
                         f"PRD safety constraints:\n{_quote_join(prd.safety_constraints)}\n"
+                        f"Non-negotiable approval gates:\n{_quote_join(prd.non_negotiable_approval_gates)}\n"
                         f"Plan minimal strategy: {plan.minimal_strategy}\n"
                         f"Critic decision: {critic.decision}\n"
                         f"Critic major failures:\n{_quote_join(critic.major_failures)}\n"
@@ -1454,18 +1528,19 @@ class ModeratedPrdLoop:
         if review.iteration_count != self.state.iteration:
             raise ValidationError("moderator_review iteration_count must match the current iteration")
         prd = PRD.from_dict(self._read_artifact("prd"))
-        _write_json(self._artifact_path("moderator_review"), review.to_dict())
         if review.decision == "approve":
             if is_pending_path(prd.artifact_output_path):
                 raise ValidationError("cannot approve while artifact_output_path is still pending user answer")
             output_path = Path(prd.artifact_output_path).expanduser()
             if not output_path.parent.exists():
                 raise ValidationError("artifact_output_path parent directory must already exist")
+            _write_json(self._artifact_path("moderator_review"), review.to_dict())
             self._write_final_plan_document(output_path)
             self.state.artifact_output_path = str(output_path)
             self._set_phase("succeeded", status="succeeded")
             self._persist_state()
             return
+        _write_json(self._artifact_path("moderator_review"), review.to_dict())
         if not self._bump_iteration_or_exhaust("moderator rejected at iteration cap"):
             return
         self._set_phase("prd_revision")
@@ -1484,12 +1559,20 @@ class ModeratedPrdLoop:
             "",
             "## Approved PRD Summary",
             f"- User intent: {prd.user_intent}",
+            "- In scope:",
+            *[f"  - {item}" for item in prd.in_scope],
+            "- Out of scope:",
+            *[f"  - {item}" for item in prd.out_of_scope],
+            "- User values:",
+            *[f"  - {item}" for item in prd.user_values],
             "- Success criteria:",
             *[f"  - {item}" for item in prd.success_criteria],
             "- Failure conditions:",
             *[f"  - {item}" for item in prd.failure_conditions],
             "- Safety constraints:",
             *[f"  - {item}" for item in prd.safety_constraints],
+            "- Non-negotiable approval gates:",
+            *[f"  - {item}" for item in prd.non_negotiable_approval_gates],
             f"- Workspace strategy: {prd.workspace_strategy}",
             f"- Artifact output path: {prd.artifact_output_path}",
             f"- Iteration budget: {prd.iteration_budget}",
@@ -1536,6 +1619,14 @@ class ModeratedPrdLoop:
                 missing.append(kind)
         if self.state.phase != "succeeded":
             missing.append("terminal_success")
+        if self._artifact_exists("critic_report"):
+            critic = CriticReport.from_dict(self._read_artifact("critic_report"))
+            if critic.decision != "approve":
+                missing.append("critic_approval")
+        if self._artifact_exists("moderator_review"):
+            review = ModeratorReview.from_dict(self._read_artifact("moderator_review"))
+            if review.decision != "approve":
+                missing.append("moderator_approval")
         path = self.state.artifact_output_path
         if is_pending_path(path):
             missing.append("artifact_output_path")

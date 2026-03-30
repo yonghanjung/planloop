@@ -53,9 +53,13 @@ def discovery_dict(*, output_path: str = "Path pending user answer", iteration_b
 def prd_dict(*, output_path: str, iteration_budget: int = 5) -> dict:
     return {
         "user_intent": "Produce a clean install plan for telegram-mcp-server.",
+        "in_scope": ["Produce a reviewable install plan."],
+        "out_of_scope": ["Do not execute the install."],
+        "user_values": ["Keep the plan minimal and explicit."],
         "success_criteria": ["Plan covers setup, validation, and stop points."],
         "failure_conditions": ["Touches unrelated systems."],
         "safety_constraints": ["Pause before external side effects."],
+        "non_negotiable_approval_gates": ["Do not skip moderator approval."],
         "workspace_strategy": "branch",
         "artifact_output_path": output_path,
         "iteration_budget": iteration_budget,
@@ -128,6 +132,9 @@ class PlanloopRunnerTests(unittest.TestCase):
         self.assertEqual(prd.workspace_strategy, "branch")
         self.assertIn("produce an approved plan", discovery.interpreted_goal.lower())
         self.assertIn("recommendation", discovery.desired_end_state.lower())
+        self.assertIn("reviewable plan", " ".join(prd.in_scope).lower())
+        self.assertIn("minimal", " ".join(prd.user_values).lower())
+        self.assertIn("do not skip moderator intake", " ".join(prd.non_negotiable_approval_gates).lower())
         self.assertIn(output_path, prd.success_criteria[-1])
         self.assertEqual(intake_summary["moderator_confidence"], "high")
         self.assertNotIn("outcome_answer", intake_summary)
@@ -158,6 +165,7 @@ class PlanloopRunnerTests(unittest.TestCase):
         self.assertEqual(handoff["actor"], "moderator")
         self.assertEqual(handoff["required_record"], "discovery_packet")
         self.assertIn("Ask these questions", handoff["prompt"])
+        self.assertIn("degraded single-thread mode", handoff["prompt"])
         self.assertIn("The outcome is implicit: produce a plan.", handoff["prompt"])
         self.assertNotIn("Why this matters", handoff["prompt"])
         self.assertNotIn("Outcome", handoff["prompt"])
@@ -170,6 +178,7 @@ class PlanloopRunnerTests(unittest.TestCase):
         self.assertEqual(len(questions), 4)
         prompt = render_guided_intake_prompt("Install telegram-mcp-server.")
         self.assertIn("Ask at most 4 short questions.", prompt)
+        self.assertIn("degraded single-thread mode", prompt)
         self.assertNotIn("Why this matters", prompt)
         self.assertNotIn("Outcome", prompt)
 
@@ -226,8 +235,30 @@ class PlanloopRunnerTests(unittest.TestCase):
         handoff = loop.next_handoff()
         self.assertEqual(handoff["phase"], "moderator_review")
         self.assertIn("artifact_output_path is still pending user answer", handoff["blocking_conditions"])
+        review_path = Path(loop.state.artifact_paths["moderator_review"])
         with self.assertRaises(ValidationError):
             loop.record_moderator_review(ModeratorReview.from_dict(moderator_review(decision="approve", iteration_count=1)))
+        self.assertFalse(review_path.exists())
+        self.assertEqual(loop.state.phase, "moderator_review")
+
+    def test_auto_finish_reuses_the_same_prd_synthesis_as_guided_intake(self) -> None:
+        run_root = make_run_root()
+        output_path = make_output_path(run_root, "parity-plan.md")
+        discovery, direct_prd, _ = build_guided_intake_artifacts(
+            task_text="Install telegram-mcp-server.",
+            success_answer="The checklist is approved; The output file exists",
+            failure_answer="Do not touch unrelated repos",
+            safety_answer="Pause before any networked mutation",
+            workspace_answer="use a worktree",
+            artifact_output_path=output_path,
+            iteration_budget=4,
+        )
+        loop = ModeratedPrdLoop.create(task_text="Install telegram-mcp-server.", run_root=run_root)
+        loop.record_discovery_packet(discovery)
+        payload = loop.auto_finish()
+        recorded_prd = PRD.from_dict(json.loads(Path(loop.state.artifact_paths["prd"]).read_text(encoding="utf-8")))
+        self.assertEqual(recorded_prd.to_dict(), direct_prd.to_dict())
+        self.assertTrue(payload["final_plan_exists"])
 
     def test_plan_path_and_prd_path_must_match(self) -> None:
         run_root = make_run_root()
@@ -266,6 +297,20 @@ class PlanloopRunnerTests(unittest.TestCase):
         self.assertTrue(payload["final_plan_exists"])
         self.assertEqual(payload["generated_artifacts"], ["plan_packet", "critic_report", "moderator_review"])
         self.assertTrue(Path(output_path).exists())
+
+    def test_verify_completion_requires_explicit_approvals(self) -> None:
+        run_root = make_run_root()
+        output_path = make_output_path(run_root, "verify-plan.md")
+        loop = ModeratedPrdLoop.create(task_text="Install telegram-mcp-server.", run_root=run_root)
+        loop.record_discovery_packet(DiscoveryPacket.from_dict(discovery_dict(output_path=output_path)))
+        loop.record_prd(PRD.from_dict(prd_dict(output_path=output_path)))
+        loop.record_plan_packet(PlanPacket.from_dict(plan_dict(output_path=output_path)))
+        loop.record_critic_report(CriticReport.from_dict(critic_report(decision="approve", iteration_count=1)))
+        loop.record_moderator_review(ModeratorReview.from_dict(moderator_review(decision="approve", iteration_count=1)))
+        completion = loop.verify_completion()
+        self.assertTrue(completion["ok"])
+        self.assertNotIn("critic_approval", completion["missing_conditions"])
+        self.assertNotIn("moderator_approval", completion["missing_conditions"])
 
     def test_run_command_interactive_creates_discovery_and_prd(self) -> None:
         run_root = make_run_root()
