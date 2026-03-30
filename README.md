@@ -19,22 +19,23 @@ $planloop install telegram-mcp-server
 ```
 
 Claude Code also supports the same skill package, but not through Codex's GitHub installer flow.
-Install it by cloning this repo and then linking `skills/planloop` into Claude Code's skills directory.
+Install it by cloning this repo and using the helper script in this repo.
+The helper links the skill into `~/.claude/skills/planloop` for personal use or `<project>/.claude/skills/planloop` for project-local use.
 
 Personal install across projects:
 
 ```bash
 git clone https://github.com/yonghanjung/planloop.git
 cd planloop
-mkdir -p ~/.claude/skills
-ln -s "$PWD/skills/planloop" ~/.claude/skills/planloop
+./scripts/install-claude-skill --personal
 ```
 
 Project-local install from inside an existing project:
 
 ```bash
-mkdir -p .claude/skills
-ln -s /path/to/planloop/skills/planloop .claude/skills/planloop
+git clone https://github.com/yonghanjung/planloop.git
+cd planloop
+./scripts/install-claude-skill --project /path/to/target-project
 ```
 
 Then start or restart Claude Code and invoke:
@@ -68,6 +69,16 @@ Run the benchmark scorer:
 ./scripts/planloop-benchmark score \
   --cases benchmarks/cases/planloop-12.json \
   --results benchmarks/results/example-results.json
+```
+
+Example output:
+
+```text
+Benchmark: Planloop-12 v0.1
+System: planloop (example-local-run)
+Coverage: 4/12 (33.33%)
+Coverage status: demo_only
+Composite score: 77.50/100
 ```
 
 ## Repo Layout

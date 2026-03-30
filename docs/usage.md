@@ -40,15 +40,15 @@ Personal install example:
 ```bash
 git clone https://github.com/yonghanjung/planloop.git
 cd planloop
-mkdir -p ~/.claude/skills
-ln -s "$PWD/skills/planloop" ~/.claude/skills/planloop
+./scripts/install-claude-skill --personal
 ```
 
 Project-local install example:
 
 ```bash
-mkdir -p .claude/skills
-ln -s /path/to/planloop/skills/planloop .claude/skills/planloop
+git clone https://github.com/yonghanjung/planloop.git
+cd planloop
+./scripts/install-claude-skill --project /path/to/target-project
 ```
 
 Then start or restart Claude Code and invoke:
@@ -126,6 +126,16 @@ Run the benchmark scorer:
 ./scripts/planloop-benchmark score \
   --cases benchmarks/cases/planloop-12.json \
   --results benchmarks/results/example-results.json
+```
+
+Example benchmark output:
+
+```text
+Benchmark: Planloop-12 v0.1
+System: planloop (example-local-run)
+Coverage: 4/12 (33.33%)
+Coverage status: demo_only
+Composite score: 77.50/100
 ```
 
 The CLI is development tooling. The primary public onboarding path is still the Codex skill.

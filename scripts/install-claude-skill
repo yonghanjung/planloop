@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SOURCE="$ROOT/skills/planloop"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ./scripts/install-claude-skill --personal
+  ./scripts/install-claude-skill --project /absolute/path/to/project
+
+Installs the local planloop skill package into a Claude Code skills directory by
+creating a symlink.
+EOF
+}
+
+require_skill_source() {
+  if [[ ! -f "$SOURCE/SKILL.md" ]]; then
+    echo "Missing skill source: $SOURCE/SKILL.md" >&2
+    exit 1
+  fi
+}
+
+resolve_project_dir() {
+  local raw="$1"
+  if [[ ! -d "$raw" ]]; then
+    echo "Project directory not found: $raw" >&2
+    exit 1
+  fi
+  (cd "$raw" && pwd)
+}
+
+install_link() {
+  local dest="$1"
+  mkdir -p "$(dirname "$dest")"
+
+  if [[ -L "$dest" ]]; then
+    local current
+    current="$(readlink "$dest")"
+    if [[ "$current" == "$SOURCE" ]]; then
+      echo "Already installed: $dest"
+      echo "Start or restart Claude Code and run: /planloop <task>"
+      exit 0
+    fi
+    echo "Destination already exists as a different symlink: $dest -> $current" >&2
+    exit 1
+  fi
+
+  if [[ -e "$dest" ]]; then
+    echo "Destination already exists: $dest" >&2
+    exit 1
+  fi
+
+  ln -s "$SOURCE" "$dest"
+  echo "Installed planloop to $dest"
+  echo "Start or restart Claude Code and run: /planloop <task>"
+}
+
+main() {
+  require_skill_source
+
+  if [[ $# -eq 0 ]]; then
+    usage
+    exit 1
+  fi
+
+  case "$1" in
+    --personal)
+      if [[ $# -ne 1 ]]; then
+        usage
+        exit 1
+      fi
+      install_link "$HOME/.claude/skills/planloop"
+      ;;
+    --project)
+      if [[ $# -ne 2 ]]; then
+        usage
+        exit 1
+      fi
+      local project_dir
+      project_dir="$(resolve_project_dir "$2")"
+      install_link "$project_dir/.claude/skills/planloop"
+      ;;
+    -h|--help)
+      usage
+      ;;
+    *)
+      usage >&2
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"

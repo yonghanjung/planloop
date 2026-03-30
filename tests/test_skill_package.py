@@ -57,10 +57,13 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("$planloop install telegram-mcp-server", readme)
         self.assertIn("~/.claude/skills/planloop", readme)
         self.assertIn("git clone https://github.com/yonghanjung/planloop.git", readme)
-        self.assertIn('ln -s "$PWD/skills/planloop" ~/.claude/skills/planloop', readme)
+        self.assertIn("./scripts/install-claude-skill --personal", readme)
+        self.assertIn("./scripts/install-claude-skill --project /path/to/target-project", readme)
         self.assertIn("/planloop install telegram-mcp-server", readme)
         self.assertIn("./scripts/planloop run", readme)
         self.assertIn("./scripts/planloop-benchmark score", readme)
+        self.assertIn("Coverage: 4/12 (33.33%)", readme)
+        self.assertIn("Composite score: 77.50/100", readme)
 
     def test_usage_doc_matches_public_contract(self) -> None:
         doc_text = (ROOT / "docs" / "usage.md").read_text(encoding="utf-8")
@@ -70,9 +73,11 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("The outcome is implicit: `plan` is mandatory.", doc_text)
         self.assertIn("~/.claude/skills/planloop", doc_text)
         self.assertIn("git clone https://github.com/yonghanjung/planloop.git", doc_text)
-        self.assertIn('ln -s "$PWD/skills/planloop" ~/.claude/skills/planloop', doc_text)
+        self.assertIn("./scripts/install-claude-skill --personal", doc_text)
+        self.assertIn("./scripts/install-claude-skill --project /path/to/target-project", doc_text)
         self.assertIn("/planloop install telegram-mcp-server", doc_text)
         self.assertIn("./scripts/planloop run", doc_text)
+        self.assertIn("Coverage: 4/12 (33.33%)", doc_text)
 
     def test_benchmark_doc_has_coverage_interpretation(self) -> None:
         doc_text = (ROOT / "docs" / "benchmark.md").read_text(encoding="utf-8")
@@ -108,6 +113,7 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertTrue((ROOT / "pyproject.toml").exists())
         self.assertTrue((ROOT / "scripts" / "planloop").exists())
         self.assertTrue((ROOT / "scripts" / "planloop-benchmark").exists())
+        self.assertTrue((ROOT / "scripts" / "install-claude-skill").exists())
         self.assertTrue((ROOT / "src" / "planloop" / "__main__.py").exists())
 
 
