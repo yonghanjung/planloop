@@ -22,10 +22,10 @@
       "bundled_intake": true,
       "asked_outcome": false,
       "used_why_this_matters": false,
-      "user_turns_to_approved_plan": 2,
+      "user_turns_to_approved_plan": 3,
       "approved_without_rewrite": true,
       "downstream_execution_ready": true,
-      "total_tokens": 520,
+      "total_tokens": 610,
       "failure_tags": ["weak_verification"]
     },
     {
@@ -39,6 +39,18 @@
       "downstream_execution_ready": true,
       "total_tokens": 610,
       "failure_tags": ["overengineering"]
+    },
+    {
+      "task_id": "ops-003",
+      "first_response_mode": "intake_only",
+      "bundled_intake": true,
+      "asked_outcome": false,
+      "used_why_this_matters": false,
+      "user_turns_to_approved_plan": 4,
+      "approved_without_rewrite": false,
+      "downstream_execution_ready": true,
+      "total_tokens": 980,
+      "failure_tags": ["unsafe_assumption"]
     }
   ]
 }

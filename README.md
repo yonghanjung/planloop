@@ -19,12 +19,25 @@ $planloop install telegram-mcp-server
 ```
 
 Claude Code also supports the same skill package, but not through Codex's GitHub installer flow.
-Install it by cloning this repo and then copying or symlinking `skills/planloop` into either:
+Install it by cloning this repo and then linking `skills/planloop` into Claude Code's skills directory.
 
-- `~/.claude/skills/planloop` for personal use across projects
-- `.claude/skills/planloop` inside a project for project-local use
+Personal install across projects:
 
-Then invoke:
+```bash
+git clone https://github.com/yonghanjung/planloop.git
+cd planloop
+mkdir -p ~/.claude/skills
+ln -s "$PWD/skills/planloop" ~/.claude/skills/planloop
+```
+
+Project-local install from inside an existing project:
+
+```bash
+mkdir -p .claude/skills
+ln -s /path/to/planloop/skills/planloop .claude/skills/planloop
+```
+
+Then start or restart Claude Code and invoke:
 
 ```text
 /planloop install telegram-mcp-server

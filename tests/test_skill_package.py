@@ -56,6 +56,8 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("Use $skill-installer to install the skill from GitHub repo <owner>/<repo> path skills/planloop.", readme)
         self.assertIn("$planloop install telegram-mcp-server", readme)
         self.assertIn("~/.claude/skills/planloop", readme)
+        self.assertIn("git clone https://github.com/yonghanjung/planloop.git", readme)
+        self.assertIn('ln -s "$PWD/skills/planloop" ~/.claude/skills/planloop', readme)
         self.assertIn("/planloop install telegram-mcp-server", readme)
         self.assertIn("./scripts/planloop run", readme)
         self.assertIn("./scripts/planloop-benchmark score", readme)
@@ -67,6 +69,8 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("one short bundled intake block", doc_text)
         self.assertIn("The outcome is implicit: `plan` is mandatory.", doc_text)
         self.assertIn("~/.claude/skills/planloop", doc_text)
+        self.assertIn("git clone https://github.com/yonghanjung/planloop.git", doc_text)
+        self.assertIn('ln -s "$PWD/skills/planloop" ~/.claude/skills/planloop', doc_text)
         self.assertIn("/planloop install telegram-mcp-server", doc_text)
         self.assertIn("./scripts/planloop run", doc_text)
 

@@ -35,7 +35,23 @@ Claude Code supports the same skill package through its skills directories:
 - `~/.claude/skills/planloop` for personal use
 - `.claude/skills/planloop` for project-local use
 
-After linking or copying `skills/planloop` into one of those locations, invoke:
+Personal install example:
+
+```bash
+git clone https://github.com/yonghanjung/planloop.git
+cd planloop
+mkdir -p ~/.claude/skills
+ln -s "$PWD/skills/planloop" ~/.claude/skills/planloop
+```
+
+Project-local install example:
+
+```bash
+mkdir -p .claude/skills
+ln -s /path/to/planloop/skills/planloop .claude/skills/planloop
+```
+
+Then start or restart Claude Code and invoke:
 
 ```text
 /planloop install telegram-mcp-server
