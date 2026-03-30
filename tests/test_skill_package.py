@@ -13,6 +13,7 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertTrue((ROOT / "skills" / "planloop" / "SKILL.md").exists())
         self.assertTrue((ROOT / "skills" / "planloop" / "agents" / "openai.yaml").exists())
         self.assertTrue((ROOT / "LICENSE").exists())
+        self.assertTrue((ROOT / "CHANGELOG.md").exists())
 
     def test_public_files_have_no_machine_specific_absolute_paths(self) -> None:
         bad_tokens = ["/Users/", "~/.agents/", "python3 /Users/"]
@@ -68,9 +69,10 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("Coverage: 4/12 (33.33%)", readme)
         self.assertIn("Composite score: 77.50/100", readme)
         self.assertIn("## Support Matrix", readme)
-        self.assertIn("GitHub installer packaging verified on a clean temp `CODEX_HOME`", readme)
-        self.assertIn("fresh `codex exec` runtime recognition is still pending", readme)
-        self.assertIn("Project-local install and runtime first response verified with `claude -p`", readme)
+        self.assertIn("GitHub installer packaging verified on a clean temp destination", readme)
+        self.assertIn("current authenticated `codex exec` runtime first response verified", readme)
+        self.assertIn("Fresh GitHub clone helper install verified", readme)
+        self.assertIn("project-local runtime first response verified with `claude -p`", readme)
         self.assertIn("## License", readme)
         self.assertIn("MIT. See [LICENSE](LICENSE).", readme)
 
