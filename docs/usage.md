@@ -7,6 +7,7 @@ What users see:
 - one short bundled 4-question intake block in simple English
 - a clear stage flow: `Clarify -> Draft Plan -> Stress-Test -> Approve`
 - one approved plan document at the requested output path
+- an optional `critic_mode` setting: `adversarial` or `balanced`
 
 ## Quick Start
 
@@ -26,6 +27,12 @@ Default user prompt:
 
 ```text
 $planloop install telegram-mcp-server
+```
+
+Optional public override:
+
+```text
+$planloop install telegram-mcp-server critic_mode=balanced
 ```
 
 ### Claude Code
@@ -59,6 +66,7 @@ Then start or restart Claude Code and invoke:
 
 The user does not need to mention `Agent M`, `Agent P`, or `Agent C` manually.
 The outcome is implicit: `plan` is mandatory.
+`critic_mode=adversarial` is the default public contract.
 
 ## Public Flow
 
@@ -117,7 +125,7 @@ This repo also ships a local CLI for deterministic drafting and benchmarking.
 Run the local workflow:
 
 ```bash
-./scripts/planloop run --task-text "Install telegram-mcp-server."
+./scripts/planloop run --task-text "Install telegram-mcp-server." --critic-mode balanced
 ```
 
 Run the benchmark scorer:

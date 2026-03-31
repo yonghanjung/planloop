@@ -1,6 +1,6 @@
 ---
 name: planloop
-description: "Use when the user wants a moderator-owned PRD workflow with a short guided intake, a minimal planner, an adversarial critic, and a final moderator approval gate."
+description: "Use when the user wants a moderator-owned PRD workflow with a short guided intake, a minimal planner, a configurable critic, and a final moderator approval gate."
 metadata:
   short-description: Guided PRD and plan loop
 ---
@@ -25,6 +25,7 @@ Public-facing name:
 - the user does not need to mention `Agent M`, `Agent P`, or `Agent C`
 - `planloop` should handle the internal role structure on its own
 - the public stage names are `Clarify -> Draft Plan -> Stress-Test -> Approve`
+- the public user may optionally set `critic_mode=adversarial` or `critic_mode=balanced`
 - if the user explicitly invokes `$planloop`, that invocation outranks a direct jump to review, refactor, or implementation
 - when `$planloop` is explicitly invoked, the first assistant-visible behavior must still be `Agent M` intake unless all five intake fields are already present
 
@@ -57,6 +58,7 @@ Simple public prompt:
 - default intake language is simple English
 - the default first assistant reply is one short bundled intake block that covers all required intake fields at once
 - the default bundled intake block is at most `4` questions
+- default `critic_mode` is `adversarial`
 - each intake question should include:
   - exactly `3` easy options
   - one concrete example per option
@@ -167,6 +169,7 @@ Responsibilities:
 - attack unjustified assumptions
 - call out missing tests, weak validation, unsafe steps, weak rollback, and complexity rent
 - approve only when the plan is coherent, minimal, testable, and aligned with the `PRD`
+- default to `critic_mode=adversarial`; if the user explicitly asks for `critic_mode=balanced`, still stress-test the plan but avoid low-signal nitpicks once the plan is minimal, safe, and verifiable
 
 ## Canonical Artifacts
 
@@ -298,4 +301,4 @@ Preferred simple prompt:
 
 Advanced prompt only when the user explicitly wants to control the internal role behavior:
 
-`Use $planloop. Agent M should ask me a short, easy intake in English with three options per question plus free-form answers, then write the PRD; Agent P should produce the minimal executable plan; Agent C should aggressively critique it; and Agent M should approve or reject the result.`
+`Use $planloop. Agent M should ask me a short, easy intake in English with three options per question plus free-form answers, then write the PRD; Agent P should produce the minimal executable plan; Agent C should critique it using critic_mode=adversarial unless I override it; and Agent M should approve or reject the result.`

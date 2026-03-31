@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from planloop.runner import (  # noqa: E402
     CriticReport,
     DiscoveryPacket,
+    LoopConfig,
     ModeratedPrdLoop,
     ModeratorReview,
     PRD,
@@ -24,6 +25,7 @@ from planloop.runner import (  # noqa: E402
     build_guided_intake_artifacts,
     guided_intake_questions,
     render_guided_intake_prompt,
+    synthesize_critic_report,
 )
 
 
@@ -83,6 +85,21 @@ def plan_dict(*, output_path: str) -> dict:
     }
 
 
+def borderline_plan_dict(*, output_path: str) -> dict:
+    return {
+        "goal_mapping": ["Map install prerequisites to the PRD."],
+        "minimal_strategy": " ".join(["minimal"] * 80),
+        "implementation_shape": [f"Step {idx}" for idx in range(1, 8)],
+        "tdd_qa": ["Run a verification command that confirms the plan output exists."],
+        "risk_controls": [f"Pause for approval before writing the final plan to {output_path}."],
+        "workspace_strategy": "branch",
+        "artifact_output_path": output_path,
+        "critique_responses": [],
+        "open_assumptions": [],
+        "why_this_is_minimal": "It stays close to the current path.",
+    }
+
+
 def critic_report(*, decision: str, iteration_count: int) -> dict:
     return {
         "decision": decision,
@@ -116,6 +133,20 @@ def cli_env() -> dict[str, str]:
 
 
 class PlanloopRunnerTests(unittest.TestCase):
+    def test_loop_persists_critic_mode(self) -> None:
+        run_root = make_run_root()
+        loop = ModeratedPrdLoop.create(
+            task_text="Install telegram-mcp-server.",
+            run_root=run_root,
+            config=LoopConfig(max_iterations=3, critic_mode="balanced"),
+        )
+        self.assertEqual(loop.state.critic_mode, "balanced")
+        reloaded = ModeratedPrdLoop.load(loop.run_dir)
+        self.assertEqual(reloaded.state.critic_mode, "balanced")
+        handoff = reloaded.next_handoff()
+        self.assertEqual(handoff["critic_mode"], "balanced")
+        self.assertEqual(handoff["critic_mode_label"], "Balanced")
+
     def test_guided_intake_artifacts_build_from_option_answers(self) -> None:
         output_path = "/tmp/planloop-test-plan.md"
         discovery, prd, intake_summary = build_guided_intake_artifacts(
@@ -298,6 +329,27 @@ class PlanloopRunnerTests(unittest.TestCase):
         self.assertEqual(payload["generated_artifacts"], ["plan_packet", "critic_report", "moderator_review"])
         self.assertTrue(Path(output_path).exists())
 
+    def test_balanced_critic_mode_is_more_permissive_than_adversarial(self) -> None:
+        run_root = make_run_root()
+        output_path = make_output_path(run_root, "borderline-plan.md")
+        prd = PRD.from_dict(prd_dict(output_path=output_path))
+        plan = PlanPacket.from_dict(borderline_plan_dict(output_path=output_path))
+        balanced = synthesize_critic_report(
+            prd=prd,
+            plan=plan,
+            iteration_count=1,
+            critic_mode="balanced",
+        )
+        adversarial = synthesize_critic_report(
+            prd=prd,
+            plan=plan,
+            iteration_count=1,
+            critic_mode="adversarial",
+        )
+        self.assertEqual(balanced.decision, "approve")
+        self.assertEqual(adversarial.decision, "revise")
+        self.assertIn("final output path", " ".join(adversarial.missing_evidence))
+
     def test_verify_completion_requires_explicit_approvals(self) -> None:
         run_root = make_run_root()
         output_path = make_output_path(run_root, "verify-plan.md")
@@ -329,11 +381,35 @@ class PlanloopRunnerTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["result_type"], "interactive_run")
+        self.assertEqual(payload["critic_mode"], "adversarial")
+        self.assertEqual(payload["state"]["critic_mode"], "adversarial")
         self.assertEqual(payload["state"]["phase"], "planning")
         self.assertEqual(payload["next_handoff"]["stage_label"], "Draft Plan")
         self.assertTrue(Path(payload["state"]["artifact_paths"]["discovery_packet"]).exists())
         self.assertTrue(Path(payload["state"]["artifact_paths"]["prd"]).exists())
         self.assertNotIn("outcome_answer", payload["intake_summary"])
+
+    def test_run_command_accepts_balanced_critic_mode(self) -> None:
+        run_root = make_run_root()
+        output_path = make_output_path(run_root, "interactive-balanced-plan.md")
+        cmd = [
+            str(ROOT / "scripts" / "planloop"),
+            "run",
+            "--task-text",
+            "Install telegram-mcp-server.",
+            "--run-root",
+            str(run_root),
+            "--critic-mode",
+            "balanced",
+            "--json",
+        ]
+        user_input = "\n".join(["B", "B", "A", "B", output_path]) + "\n"
+        proc = subprocess.run(cmd, input=user_input, text=True, capture_output=True, check=False, env=cli_env())
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["critic_mode"], "balanced")
+        self.assertEqual(payload["state"]["critic_mode"], "balanced")
+        self.assertEqual(payload["next_handoff"]["critic_mode"], "balanced")
 
     def test_run_command_auto_finish_writes_final_plan(self) -> None:
         run_root = make_run_root()

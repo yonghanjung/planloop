@@ -111,6 +111,7 @@ def _emit(payload: dict, as_json: bool) -> None:
             print("")
             print(f"Run dir: {payload['run_dir']}")
             print(f"Task: {payload['task_text']}")
+            print(f"Critic mode: {payload.get('critic_mode') or payload['state'].get('critic_mode', 'adversarial')}")
             if payload["state"]["phase"] == "succeeded":
                 print("Status: Auto-finish complete. Final plan written.")
             else:
@@ -141,6 +142,7 @@ def _emit(payload: dict, as_json: bool) -> None:
             print("")
             print(f"Run dir: {payload['run_dir']}")
             print(f"Task: {payload['task_text']}")
+            print(f"Critic mode: {payload.get('critic_mode') or payload['state'].get('critic_mode', 'adversarial')}")
             if payload.get("auto_finish"):
                 if payload["state"]["phase"] == "succeeded":
                     print("Status: Intake complete. Auto-finish completed the planning loop.")
@@ -183,6 +185,7 @@ def _emit(payload: dict, as_json: bool) -> None:
             print(f"Actor: {payload.get('actor_label') or 'None'}")
             print(f"Phase: {payload.get('phase')}")
             print(f"Iteration: {payload.get('iteration')}/{payload.get('max_iterations')}")
+            print(f"Critic mode: {payload.get('critic_mode_label') or payload.get('critic_mode') or 'Adversarial'}")
             print(f"Required record: {payload.get('required_record') or 'None'}")
             command = payload.get("record_command_template")
             if command:
@@ -212,10 +215,11 @@ def cmd_init(args: argparse.Namespace) -> dict:
     loop = ModeratedPrdLoop.create(
         task_text=_read_task(args),
         run_root=Path(args.run_root).expanduser(),
-        config=LoopConfig(max_iterations=args.max_iterations),
+        config=LoopConfig(max_iterations=args.max_iterations, critic_mode=args.critic_mode),
     )
     return {
         "run_dir": str(loop.run_dir),
+        "critic_mode": loop.state.critic_mode,
         "state": loop.state.to_dict(),
         "completion": loop.completion_summary(),
     }
@@ -225,6 +229,7 @@ def cmd_status(args: argparse.Namespace) -> dict:
     loop = ModeratedPrdLoop.load(Path(args.run_dir))
     return {
         "run_dir": str(loop.run_dir),
+        "critic_mode": loop.state.critic_mode,
         "state": loop.state.to_dict(),
         "completion": loop.completion_summary(),
     }
@@ -247,6 +252,7 @@ def cmd_record(args: argparse.Namespace) -> dict:
         raise RuntimeError(f"unsupported record kind: {args.kind}")
     return {
         "run_dir": str(loop.run_dir),
+        "critic_mode": loop.state.critic_mode,
         "state": loop.state.to_dict(),
         "completion": loop.completion_summary(),
     }
@@ -260,6 +266,7 @@ def cmd_report(args: argparse.Namespace) -> dict:
         exists = Path(final_path).expanduser().exists()
     return {
         "run_dir": str(loop.run_dir),
+        "critic_mode": loop.state.critic_mode,
         "state": loop.state.to_dict(),
         "completion": loop.completion_summary(),
         "final_plan_path": final_path,
@@ -271,6 +278,7 @@ def cmd_verify(args: argparse.Namespace) -> tuple[dict, int]:
     loop = ModeratedPrdLoop.load(Path(args.run_dir))
     payload = {
         "run_dir": str(loop.run_dir),
+        "critic_mode": loop.state.critic_mode,
         **loop.verify_completion(),
     }
     return payload, 0 if payload["ok"] else 2
@@ -288,6 +296,7 @@ def cmd_auto_finish(args: argparse.Namespace) -> dict:
         "result_type": "auto_finish",
         "run_dir": str(loop.run_dir),
         "task_text": loop.state.task_text,
+        "critic_mode": loop.state.critic_mode,
         **payload,
     }
 
@@ -297,7 +306,7 @@ def cmd_run(args: argparse.Namespace) -> dict:
     loop = ModeratedPrdLoop.create(
         task_text=task_text,
         run_root=Path(args.run_root).expanduser(),
-        config=LoopConfig(max_iterations=args.max_iterations),
+        config=LoopConfig(max_iterations=args.max_iterations, critic_mode=args.critic_mode),
     )
     print("Plan is mandatory. I just need four quick preferences.", file=sys.stderr)
     questions = guided_intake_questions()
@@ -332,6 +341,7 @@ def cmd_run(args: argparse.Namespace) -> dict:
         "result_type": "interactive_run",
         "run_dir": str(loop.run_dir),
         "task_text": task_text,
+        "critic_mode": loop.state.critic_mode,
         "intake_summary": intake_summary,
         "discovery_packet": discovery.to_dict(),
         "prd": prd.to_dict(),
@@ -356,6 +366,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--task-file", default="")
     p_init.add_argument("--run-root", default=str(DEFAULT_RUN_ROOT))
     p_init.add_argument("--max-iterations", type=int, default=5)
+    p_init.add_argument("--critic-mode", default="adversarial")
     p_init.add_argument("--json", action="store_true")
     p_init.set_defaults(func=cmd_init)
 
@@ -401,6 +412,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--task-file", default="")
     p_run.add_argument("--run-root", default=str(DEFAULT_RUN_ROOT))
     p_run.add_argument("--max-iterations", type=int, default=5)
+    p_run.add_argument("--critic-mode", default="adversarial")
     p_run.add_argument("--outcome", default="", help=argparse.SUPPRESS)
     p_run.add_argument("--success", default="")
     p_run.add_argument("--failure", default="")

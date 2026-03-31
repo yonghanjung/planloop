@@ -43,6 +43,7 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("$planloop", yaml_text)
         self.assertIn("one short bundled intake block", yaml_text)
         self.assertIn("The outcome is implicit", yaml_text)
+        self.assertIn("critic_mode=balanced", yaml_text)
         self.assertIn('license = "MIT"', pyproject_text)
 
     def test_planloop_skill_hard_gates_the_first_response(self) -> None:
@@ -54,6 +55,8 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("single bundled 4-question intake block", skill_text)
         self.assertIn("do not treat that as permission to skip intake", skill_text)
         self.assertIn("the outcome is implicit: `plan` is mandatory", skill_text)
+        self.assertIn("critic_mode=adversarial", skill_text)
+        self.assertIn("critic_mode=balanced", skill_text)
 
     def test_readme_prefers_public_skill_install(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -71,8 +74,10 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("## Support Matrix", readme)
         self.assertIn("## Real Example Prompts", readme)
         self.assertIn("$planloop install and verify a new MCP server for this workspace", readme)
+        self.assertIn("critic_mode=balanced", readme)
         self.assertIn("$planloop redesign the secretary workflow without breaking the existing daily output contract", readme)
         self.assertIn("$planloop design a Planloop-30 benchmark that can compare raw Codex, $plan, and $planloop", readme)
+        self.assertIn("--critic-mode adversarial", readme)
         self.assertIn("GitHub installer packaging verified on a clean temp destination", readme)
         self.assertIn("current authenticated `codex exec` runtime first response verified", readme)
         self.assertIn("Fresh GitHub clone helper install verified", readme)
@@ -91,7 +96,9 @@ class PlanloopSkillPackageTests(unittest.TestCase):
         self.assertIn("./scripts/install-claude-skill --personal", doc_text)
         self.assertIn("./scripts/install-claude-skill --project /path/to/target-project", doc_text)
         self.assertIn("/planloop install telegram-mcp-server", doc_text)
+        self.assertIn("critic_mode=balanced", doc_text)
         self.assertIn("./scripts/planloop run", doc_text)
+        self.assertIn("--critic-mode balanced", doc_text)
         self.assertIn("Coverage: 4/12 (33.33%)", doc_text)
 
     def test_benchmark_doc_has_coverage_interpretation(self) -> None:

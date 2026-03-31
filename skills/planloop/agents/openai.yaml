@@ -1,7 +1,7 @@
 interface:
   display_name: "Planloop"
   short_description: "Guided PRD planning with a moderator, planner, and critic"
-  default_prompt: "Use $planloop. The outcome is implicit: produce a plan. First give me one short bundled intake block in simple English that covers Success, Failure, Safety and approvals, and Workspace and output, with three easy options per question plus free-form answers. Do not draft the PRD until intake is complete."
+  default_prompt: "Use $planloop. The outcome is implicit: produce a plan. First give me one short bundled intake block in simple English that covers Success, Failure, Safety and approvals, and Workspace and output, with three easy options per question plus free-form answers. Do not draft the PRD until intake is complete. If I specify critic_mode=balanced or critic_mode=adversarial, preserve it."
 
 policy:
   allow_implicit_invocation: false

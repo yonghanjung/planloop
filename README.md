@@ -2,7 +2,7 @@
 
 `planloop` is a public Codex skill for protected planning.
 
-It turns a vague request into a reviewable plan by using a short guided intake, a minimal planner, an adversarial critic, and a final moderator approval gate.
+It turns a vague request into a reviewable plan by using a short guided intake, a minimal planner, a configurable critic (`adversarial` by default), and a final moderator approval gate.
 
 ## Install the Skill
 
@@ -56,9 +56,11 @@ Then start or restart Claude Code and invoke:
 - one short bundled 4-question intake block in simple English
 - a clear stage flow: `Clarify -> Draft Plan -> Stress-Test -> Approve`
 - one approved plan document at the requested output path
+- an optional `critic_mode` knob: `adversarial` for a hard red-team pass or `balanced` for a lighter proportional pass
 
 The user does not need to mention `Agent M`, `Agent P`, or `Agent C`.
 The outcome is implicit: `plan` is mandatory.
+If the user wants to tune the stress-test, they can say `critic_mode=balanced` or `critic_mode=adversarial`.
 
 ## Real Example Prompts
 
@@ -68,6 +70,12 @@ Use `planloop` when a task is ambiguous, likely to grow, or needs a clear approv
 
   ```text
   $planloop install and verify a new MCP server for this workspace
+  ```
+
+- Lighter stress-test
+
+  ```text
+  $planloop install and verify a new MCP server for this workspace critic_mode=balanced
   ```
 
 - Risky skill UX refactor
@@ -107,7 +115,7 @@ This repo also ships a small local runner and benchmark CLI.
 Run the local workflow:
 
 ```bash
-./scripts/planloop run --task-text "Install telegram-mcp-server."
+./scripts/planloop run --task-text "Install telegram-mcp-server." --critic-mode adversarial
 ```
 
 Run the benchmark scorer:

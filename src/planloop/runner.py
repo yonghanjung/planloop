@@ -14,6 +14,8 @@ DEFAULT_RUN_ROOT = ROOT / ".planloop" / "runs"
 VALID_PHASES = {"intake", "planning", "critique", "moderator_review", "prd_revision", "succeeded", "exhausted"}
 VALID_TERMINAL_PHASES = {"succeeded", "exhausted"}
 VALID_WORKSPACE_STRATEGIES = {"in_place", "branch", "worktree"}
+DEFAULT_CRITIC_MODE = "adversarial"
+VALID_CRITIC_MODES = {"adversarial", "balanced"}
 VALID_CRITIC_DECISIONS = {"approve", "revise"}
 VALID_MODERATOR_DECISIONS = {"approve", "reject"}
 ARTIFACT_FILENAMES = {
@@ -214,6 +216,27 @@ def _split_user_list(raw: str) -> list[str]:
 
 def stage_label_for_phase(phase: str) -> str:
     return PHASE_STAGE_LABELS.get(phase, phase.replace("_", " ").title())
+
+
+def critic_mode_label(mode: str) -> str:
+    normalized = normalize_critic_mode(mode)
+    if normalized == "balanced":
+        return "Balanced"
+    return "Adversarial"
+
+
+def critic_mode_summary(mode: str) -> str:
+    normalized = normalize_critic_mode(mode)
+    if normalized == "balanced":
+        return "Stress-test for material gaps, but avoid low-signal nitpicks once the plan is minimal, safe, and verifiable."
+    return "Assume the plan is weak until proven otherwise. Revise on missing evidence, safety ambiguity, or avoidable complexity."
+
+
+def critic_mode_planner_guidance(mode: str) -> str:
+    normalized = normalize_critic_mode(mode)
+    if normalized == "balanced":
+        return "Expect a pragmatic critic pass that focuses on real execution, safety, and validation gaps."
+    return "Expect a hard red-team critic pass that will attack weak evidence, loose safety language, and unnecessary complexity."
 
 
 def guided_intake_questions() -> list[dict[str, Any]]:
@@ -471,25 +494,44 @@ def synthesize_plan_packet(
     )
 
 
-def synthesize_critic_report(*, prd: "PRD", plan: "PlanPacket", iteration_count: int) -> "CriticReport":
+def synthesize_critic_report(
+    *,
+    prd: "PRD",
+    plan: "PlanPacket",
+    iteration_count: int,
+    critic_mode: str = DEFAULT_CRITIC_MODE,
+) -> "CriticReport":
+    normalized_mode = normalize_critic_mode(critic_mode)
     major_failures: list[str] = []
     missing_evidence: list[str] = []
     complexity_concerns: list[str] = []
     safety_concerns: list[str] = []
     testing_gaps: list[str] = []
     questions: list[str] = []
+    plan_text = "\n".join(
+        list(plan.goal_mapping)
+        + [plan.minimal_strategy, plan.why_this_is_minimal]
+        + list(plan.implementation_shape)
+        + list(plan.tdd_qa)
+        + list(plan.risk_controls)
+        + list(plan.critique_responses)
+    )
     if not plan.goal_mapping:
         major_failures.append("The plan does not map the implementation back to the user intent.")
     if not any(_looks_like_validation_step(item) for item in plan.tdd_qa):
         testing_gaps.append("The plan does not name a concrete validation or verification step.")
         questions.append("What exact check proves the plan worked?")
-    if prd.artifact_output_path not in "\n".join(plan.tdd_qa):
+    output_path_scope = "\n".join(plan.tdd_qa) if normalized_mode == "adversarial" else plan_text
+    if prd.artifact_output_path not in output_path_scope:
         missing_evidence.append("The plan does not explicitly confirm the final output path.")
+        questions.append("Where does the plan explicitly confirm the final output path?")
     if not any(_has_explicit_stop_language(item) for item in plan.risk_controls):
         safety_concerns.append("The plan does not clearly stop at an approval gate before risky actions.")
-    if len(plan.implementation_shape) > 6:
+    implementation_shape_limit = 6 if normalized_mode == "adversarial" else 8
+    if len(plan.implementation_shape) > implementation_shape_limit:
         complexity_concerns.append("The implementation shape is wider than the minimal path.")
-    if len(plan.minimal_strategy.split()) > 70:
+    minimal_strategy_limit = 70 if normalized_mode == "adversarial" else 110
+    if len(plan.minimal_strategy.split()) > minimal_strategy_limit:
         complexity_concerns.append("The minimal strategy explanation is longer than needed.")
     decision = "approve"
     if any((major_failures, missing_evidence, complexity_concerns, safety_concerns, testing_gaps, questions)):
@@ -620,6 +662,26 @@ def normalize_workspace_strategy(raw: str) -> str:
     return value
 
 
+def normalize_critic_mode(raw: str) -> str:
+    value = raw.strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "": DEFAULT_CRITIC_MODE,
+        "aggressive": "adversarial",
+        "default": DEFAULT_CRITIC_MODE,
+        "hard": "adversarial",
+        "moderate": "balanced",
+        "redteam": "adversarial",
+        "red_team": "adversarial",
+        "standard": "balanced",
+        "strict": "adversarial",
+    }
+    value = aliases.get(value, value)
+    if value not in VALID_CRITIC_MODES:
+        allowed = ", ".join(sorted(VALID_CRITIC_MODES))
+        raise ValidationError(f"unsupported critic mode `{raw}`; expected one of: {allowed}")
+    return value
+
+
 def is_pending_path(raw: str) -> bool:
     value = raw.strip().lower()
     return value.startswith("path pending") or value in {"pending", "pending_user_answer", "pending user answer"}
@@ -722,11 +784,15 @@ def build_prd_from_discovery(*, task_text: str, discovery: "DiscoveryPacket") ->
 @dataclass(frozen=True)
 class LoopConfig:
     max_iterations: int = 5
+    critic_mode: str = DEFAULT_CRITIC_MODE
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "LoopConfig":
         data = dict(payload)
-        return cls(max_iterations=int(data.get("max_iterations", 5)))
+        return cls(
+            max_iterations=int(data.get("max_iterations", 5)),
+            critic_mode=normalize_critic_mode(str(data.get("critic_mode", DEFAULT_CRITIC_MODE))),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -969,6 +1035,7 @@ class RunState:
     status: str
     iteration: int
     max_iterations: int
+    critic_mode: str
     created_at: str
     updated_at: str
     artifact_paths: dict[str, str]
@@ -989,6 +1056,7 @@ class RunState:
             status=_require_string(data, "status"),
             iteration=_require_int(data, "iteration"),
             max_iterations=_require_int(data, "max_iterations"),
+            critic_mode=normalize_critic_mode(str(data.get("critic_mode", DEFAULT_CRITIC_MODE))),
             created_at=_require_string(data, "created_at"),
             updated_at=_require_string(data, "updated_at"),
             artifact_paths=_require_mapping(data.get("artifact_paths"), name="artifact_paths"),
@@ -1032,6 +1100,7 @@ class ModeratedPrdLoop:
             status="running",
             iteration=1,
             max_iterations=config.max_iterations,
+            critic_mode=config.critic_mode,
             created_at=_now_iso(),
             updated_at=_now_iso(),
             artifact_paths=artifact_paths,
@@ -1047,7 +1116,7 @@ class ModeratedPrdLoop:
     def load(cls, run_dir: Path) -> "ModeratedPrdLoop":
         base = Path(run_dir).expanduser()
         state = RunState.from_dict(_read_json(base / ARTIFACT_FILENAMES["run_state"]))
-        return cls(base, state, LoopConfig(max_iterations=state.max_iterations))
+        return cls(base, state, LoopConfig(max_iterations=state.max_iterations, critic_mode=state.critic_mode))
 
     def _artifact_path(self, kind: str) -> Path:
         return Path(self.state.artifact_paths[kind])
@@ -1117,6 +1186,7 @@ class ModeratedPrdLoop:
             "phase": self.state.phase,
             "iteration": self.state.iteration,
             "max_iterations": self.state.max_iterations,
+            "critic_mode": self.state.critic_mode,
             "artifact_output_path": self.state.artifact_output_path,
         }
 
@@ -1145,7 +1215,12 @@ class ModeratedPrdLoop:
             if self.state.phase == "critique":
                 prd = PRD.from_dict(self._read_artifact("prd"))
                 plan = PlanPacket.from_dict(self._read_artifact("plan_packet"))
-                critic = synthesize_critic_report(prd=prd, plan=plan, iteration_count=self.state.iteration)
+                critic = synthesize_critic_report(
+                    prd=prd,
+                    plan=plan,
+                    iteration_count=self.state.iteration,
+                    critic_mode=self.state.critic_mode,
+                )
                 self.record_critic_report(critic)
                 generated.append("critic_report")
                 continue
@@ -1209,6 +1284,8 @@ class ModeratedPrdLoop:
             "stage_label": stage_label_for_phase(self.state.phase),
             "iteration": self.state.iteration,
             "max_iterations": self.state.max_iterations,
+            "critic_mode": self.state.critic_mode,
+            "critic_mode_label": critic_mode_label(self.state.critic_mode),
             "required_record": required_record,
             "record_command_template": None
             if required_record is None
@@ -1226,6 +1303,7 @@ class ModeratedPrdLoop:
                 "task_text": self.state.task_text,
                 "workspace_strategy": self.state.workspace_strategy,
                 "artifact_output_path": self.state.artifact_output_path,
+                "critic_mode": self.state.critic_mode,
             },
             "prompt": "",
             "product_prompt": "",
@@ -1318,6 +1396,8 @@ class ModeratedPrdLoop:
                         f"Acceptance bar:\n{_quote_join(prd.acceptance_bar_for_planner_approval)}\n"
                         f"Workspace strategy: {prd.workspace_strategy}\n"
                         f"Artifact output path: {prd.artifact_output_path}\n"
+                        f"Critic mode: {critic_mode_label(self.state.critic_mode)}\n"
+                        f"Critic stance: {critic_mode_planner_guidance(self.state.critic_mode)}\n"
                         + (
                             f"\nCritic issues to answer before resubmission:\n{_quote_join(revision_items)}\n"
                             if revision_items
@@ -1327,7 +1407,7 @@ class ModeratedPrdLoop:
                     ),
                     "product_prompt": (
                         "Draft the minimal plan that satisfies the current requirements, names the validation steps, "
-                        "and stays inside the chosen workspace and output path."
+                        "stays inside the chosen workspace and output path, and is ready for the configured critic pass."
                     ),
                 }
             )
@@ -1345,10 +1425,16 @@ class ModeratedPrdLoop:
                         "minimal_strategy": plan.minimal_strategy,
                     },
                     "prompt": (
-                        "You are Agent C (Critic). Review the current plan adversarially. "
-                        "Approve only if the plan is minimal, evidenced, safe, and directly aligned to the PRD. "
-                        "Otherwise return `decision=revise` with concrete failures.\n\n"
-                        f"Iteration: {self.state.iteration}/{self.state.max_iterations}\n"
+                        "You are Agent C (Critic). "
+                        + (
+                            "Review the current plan adversarially. Assume the plan is weak until proven otherwise. "
+                            "Revise on any missing evidence, safety ambiguity, or avoidable complexity.\n\n"
+                            if self.state.critic_mode == "adversarial"
+                            else "Review the current plan skeptically but pragmatically. Focus on material execution, "
+                            "safety, and validation gaps, and avoid low-signal nitpicks once the plan is minimal and verifiable.\n\n"
+                        )
+                        + f"Iteration: {self.state.iteration}/{self.state.max_iterations}\n"
+                        f"Critic mode: {critic_mode_label(self.state.critic_mode)}\n"
                         f"PRD user intent: {prd.user_intent}\n"
                         f"PRD success criteria:\n{_quote_join(prd.success_criteria)}\n"
                         f"PRD safety constraints:\n{_quote_join(prd.safety_constraints)}\n"
@@ -1360,7 +1446,7 @@ class ModeratedPrdLoop:
                         "safety concerns, and testing gaps."
                     ),
                     "product_prompt": (
-                        "Stress-test the current plan. Approve only if it is minimal, safe, and directly supported by evidence."
+                        "Stress-test the current plan using the configured critic mode. Approve only if it is minimal, safe, and directly supported by evidence."
                     ),
                 }
             )
@@ -1477,7 +1563,7 @@ class ModeratedPrdLoop:
             raise ValidationError("discovery_packet can only be recorded once during intake")
         _write_json(self._artifact_path("discovery_packet"), packet.to_dict())
         self.state.max_iterations = packet.iteration_budget
-        self.config = LoopConfig(max_iterations=packet.iteration_budget)
+        self.config = LoopConfig(max_iterations=packet.iteration_budget, critic_mode=self.state.critic_mode)
         self.state.workspace_strategy = packet.workspace_strategy
         self.state.artifact_output_path = packet.artifact_output_path
         self._persist_state()
@@ -1576,6 +1662,7 @@ class ModeratedPrdLoop:
             f"- Workspace strategy: {prd.workspace_strategy}",
             f"- Artifact output path: {prd.artifact_output_path}",
             f"- Iteration budget: {prd.iteration_budget}",
+            f"- Critic mode: {critic_mode_label(self.state.critic_mode)}",
             "",
             "## Approved Plan",
             *[f"- {item}" for item in plan.goal_mapping],
